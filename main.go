@@ -8,15 +8,15 @@ package main
 import (
 	"log"
 
-	certv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/vmware/octant/pkg/plugin"
-	"github.com/vmware/octant/pkg/plugin/service"
-	"github.com/vmware/octant/pkg/store"
-	"github.com/vmware/octant/pkg/view/component"
+	"github.com/vmware-tanzu/octant/pkg/plugin"
+	"github.com/vmware-tanzu/octant/pkg/plugin/service"
+	"github.com/vmware-tanzu/octant/pkg/store"
+	"github.com/vmware-tanzu/octant/pkg/view/component"
 )
 
 var pluginName = "certificates.certmanager.k8s.io"
@@ -26,10 +26,10 @@ func main() {
 	// Remove the prefix from the go logger since Octant will print logs with timestamps.
 	log.SetPrefix("")
 
-	// This plugin is interested in Pods
-	certGVK := schema.GroupVersionKind{Group: "certmanager.k8s.io", Version: "v1alpha1", Kind: "Certificate"}
+	// This plugin is interested in certificates
+	certGVK := schema.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "Certificate"}
 
-	// Tell Octant to call this plugin when printing configuration or tabs for Pods
+	// Tell Octant to call this plugin when printing configuration for certificates
 	capabilities := &plugin.Capabilities{
 		SupportsPrinterConfig: []schema.GroupVersionKind{certGVK},
 		IsModule:              false,
@@ -63,17 +63,17 @@ func handlePrint(request *service.PrintRequest) (plugin.PrintResponse, error) {
 	if err != nil {
 		return plugin.PrintResponse{}, err
 	}
-	u, found, err := request.DashboardClient.Get(request.Context(), key)
+	u, err := request.DashboardClient.Get(request.Context(), key)
 	if err != nil {
 		return plugin.PrintResponse{}, err
 	}
 
 	// The plugin can check if the object it requested exists.
-	if !found {
+	if u == nil {
 		return plugin.PrintResponse{}, errors.New("object doesn't exist")
 	}
 
-	var cert certv1alpha1.Certificate
+	var cert certv1.Certificate
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), &cert)
 	if err != nil {
 		return plugin.PrintResponse{}, err
@@ -87,7 +87,7 @@ func handlePrint(request *service.PrintRequest) (plugin.PrintResponse, error) {
 		dnsNameComp = component.NewText(dnsname)
 		dnsNameList = append(dnsNameList, dnsNameComp)
 	}
-	config = append(config, component.SummarySection{Header: "DNS Names", Content: component.NewList("", dnsNameList)})
+	config = append(config, component.SummarySection{Header: "DNS Names", Content: component.NewList(component.TitleFromString(""), dnsNameList)})
 	// When printing an object, you can create multiple types of content. In this
 	// example, the plugin is:
 	//
